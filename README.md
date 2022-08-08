@@ -2,8 +2,8 @@
 
 A Python script using python-pptx to replace text in a PowerPoint presentation (pptx) whereever it might be.
 
-Usage: python-pptx-text-replacer -m <match> -r <replacement> -i <input-file-name> -o <output-file-name>
-       -m and -r can be specified multiple times and are paired in the order of their appearance
+    Usage: python-pptx-text-replacer -m <match> -r <replacement> -i <input-file-name> -o <output-file-name>
+           -m and -r can be specified multiple times and are paired in the order of their appearance
 
 The script is work in progress!
 
