@@ -12,6 +12,7 @@ from pptx.chart.data import CategoryChartData
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptx.enum.dml import MSO_COLOR_TYPE
 from pptx.util import Inches
 
 class python_pptx_text_replacer:
@@ -116,25 +117,37 @@ class python_pptx_text_replacer:
 
     def _save_font_configuration(self, font):
         saved = {}
-        saved['bold'] = font.bold
-        # saved['color'] = font.color
-        # saved['fill'] = font.fill
-        saved['italic'] = font.italic
-        # saved['language_id'] = font.language_id
         saved['name'] = font.name
         saved['size'] = font.size
+        saved['bold'] = font.bold
+        saved['italic'] = font.italic
         saved['underline'] = font.underline
+        saved['color.type'] = font.color.type
+        if font.color.type == MSO_COLOR_TYPE.SCHEME:
+            saved['color.brightness'] = font.color.brightness
+            saved['color.theme_color'] = font.color.theme_color
+        elif font.color.type == MSO_COLOR_TYPE.RGB:
+            saved['color.rgb'] = None if font.color.rgb is None else str(font.color.rgb)
+        # saved['fill'] = font.fill
+        # saved['language_id'] = font.language_id
         return saved
 
     def _restore_font_configuration(self, saved, font):
-        font.bold = saved['bold']
-        # font.color = saved['color']
-        # font.fill = saved['fill']
-        font.italic = saved['italic']
-        # font.language_id = saved['language_id']
         font.name = saved['name']
         font.size = saved['size']
+        font.bold = saved['bold']
+        font.italic = saved['italic']
         font.underline = saved['underline']
+        if saved['color.type'] == MSO_COLOR_TYPE.SCHEME:
+            font.color.brightness = saved['color.brightness']
+            font.color.theme_color = saved['color.theme_color']
+        elif saved['color.type'] == MSO_COLOR_TYPE.RGB:
+            if saved['rgb'] is not None:
+                font.color.rgb = RGBColor.from_string(saved['rgb'])
+            else:
+                font.color.rgb = None
+        # font.fill = saved['fill']
+        # font.language_id = saved['language_id']
 
     def _replace_runs_text(self, level, paragraph_idx, runs, pos, match, replacement):
         cnt = len(runs)
@@ -263,7 +276,7 @@ class python_pptx_text_replacer:
                     print("%s... skipped" % ( "  "*(level+2)))
 
 if __name__ == '__main__':
-    p = argparse.ArgumentParser(description=__doc__, epilog="The parameters --match and --replace can be specified multiple times. They are paired up in the order of their appearance.")
+    p = argparse.ArgumentParser(description=__doc__, epilog="The parameters --match and --replace can be specified multiple times. They are paired up in the order of their appearance.\n\nThe slide list given with --slides must be a comma-separaated list of slide numbers from 1 to the number of slides contained in the presentation or slide number ranges of the kind '4-16'. If the second number is ommitted, like in '4-' the range includes everything from the first number up to the last slide in the file.")
     p.add_argument('--match',   '-m',
                    action='append',
                    required=True,
@@ -286,6 +299,12 @@ if __name__ == '__main__':
                    required=True,
                    metavar='<output file>',
                    help="the file to write the changed presentation to")
+    p.add_argument('--slides', '-s',
+                   metavar='<list of slide numbers>',
+                   action='store',
+                   required=False,
+                   default='',
+                   help="A comma-separated list of slide numbers (1-based) to restrict processing to, i.e. '2,4,6-10'")
     p.add_argument('--tables',  '-t',
                    action='store_const',
                    dest='tables',
@@ -314,12 +333,6 @@ if __name__ == '__main__':
                    required=False,
                    default=True,
                    help="do not process charts and their categories")
-    p.add_argument('--slides', '-s',
-                   metavar='<list of slide numbers>',
-                   action='store',
-                   required=False,
-                   default='',
-                   help="A comma-separated list of slide numbers (1-based) to restrict processing to, i.e. '2,4,6-10'")
 
     ns = p.parse_args(sys.argv[1:])
 
