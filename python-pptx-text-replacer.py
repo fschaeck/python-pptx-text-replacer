@@ -5,7 +5,7 @@ The text is searched and replaced in all possible places.
  
 import sys
 import argparse
-import copy
+import re
 
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
@@ -32,22 +32,22 @@ class python_pptx_text_replacer:
             self._slides = [ True ] * slide_cnt
         else:
             self._slides = [ False ] * slide_cnt
-            for r in slides.strip().split('\\s*,\\s*'):
-                range = r.split('\\s*-\\s*',3)
+            for rr in re.split('\\s*,\\s*',slides.strip()):
+                r = re.split('\\s*-\\s*',rr,maxsplit=3)
                 low = None
                 high = None
-                if len(range)<=2:
+                if len(r)<=2:
                     try:
-                        low = int(range[0])
+                        low = int(r[0])
                     except:
                         low = None
                     high = low
-                    if len(range)==2:
-                        if len(range[1])==0:
+                    if len(r)==2:
+                        if len(r[1])==0:
                             high = slide_cnt
                         else:
                             try:
-                                high = int(range[1])
+                                high = int(r[1])
                             except:
                                 high = None
                 if low is None or high is None:
