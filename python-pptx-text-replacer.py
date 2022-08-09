@@ -5,6 +5,7 @@ The text is searched and replaced in all possible places.
  
 import sys
 import argparse
+import copy
 
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
@@ -28,9 +29,9 @@ class python_pptx_text_replacer:
         self._charts = charts
         slide_cnt = len(self._presentation.slides)
         if len(slides.strip())==0:
-            self._slides = [ True * slide_cnt ]
+            self._slides = [ True ] * slide_cnt
         else:
-            self._slides = [ False * slide_cnt ]
+            self._slides = [ False ] * slide_cnt
             for r in slides.strip().split('\\s*,\\s*'):
                 range = r.split('\\s*-\\s*',3)
                 low = None
@@ -113,6 +114,28 @@ class python_pptx_text_replacer:
                     paragraph_idx += 1
                 pos_in_text_frame = self._ensure_unicode(text_frame.text).find(match)
 
+    def _save_font_configuration(self, font):
+        saved = {}
+        saved['bold'] = font.bold
+        # saved['color'] = font.color
+        # saved['fill'] = font.fill
+        saved['italic'] = font.italic
+        # saved['language_id'] = font.language_id
+        saved['name'] = font.name
+        saved['size'] = font.size
+        saved['underline'] = font.underline
+        return saved
+
+    def _restore_font_configuration(self, saved, font):
+        font.bold = saved['bold']
+        # font.color = saved['color']
+        # font.fill = saved['fill']
+        font.italic = saved['italic']
+        # font.language_id = saved['language_id']
+        font.name = saved['name']
+        font.size = saved['size']
+        font.underline = saved['underline']
+
     def _replace_runs_text(self, level, paragraph_idx, runs, pos, match, replacement):
         cnt = len(runs)
         i = 0
@@ -135,17 +158,17 @@ class python_pptx_text_replacer:
                     if pos+match_len < olen:
                         # our match ends before the end of the text of this run therefore
                         # we put the rest of our replacement string here and we are done!
-                        font = deepcopy(run.font)
+                        saved_font = self._save_font_configuration(run.font)
                         run.text = otext[0:pos]+to_replace+otext[pos+match_len:]
-                        run.font = font
+                        self._restore_font_configuration(saved_font, run.font)
                         print("%sRun[%s,%s]: '%s' -> '%s'" % ( "  "*level, paragraph_idx, i, otext, run.text ))
                         return ('','')
                     if pos+match_len == olen:
                         # our match ends together with the text of this run therefore
                         # we put the rest of our replacement string here and we are done!
-                        font = deepcopy(run.font)
+                        saved_font = self._save_font_configuration(run.font)
                         run.text = otext[0:pos]+to_replace
-                        run.font = font
+                        self._restore_font_configuration(saved_font, run.font)
                         print("%sRun[%s,%s]: '%s' -> '%s'" % ( "  "*level, paragraph_idx, i, otext, run.text ))
                         return ('','')
                     # we still haven't found all of our original match string
@@ -168,9 +191,9 @@ class python_pptx_text_replacer:
                         to_replace = to_replace[part_match_len:]
                         repl_len -= part_match_len
                     print("%sRun[%s,%s]: '%s' -> '%s'" % ( "  "*level, paragraph_idx, i, otext, ntext ))
-                    font = deepcopy(run.font)
+                    saved_font = self._save_font_configuration(run.font)
                     run.text = ntext            # save the new text to the run
-                    run.font = font             # restore font settings for run
+                    self._restore_font_configuration(saved_font, run.font)
                     to_match = to_match[part_match_len:] # this is what is left to match
                     match_len -= part_match_len # this is the length of the match that is left
                     pos = 0                     # in the next run, we start at pos 0 with our match
