@@ -1,8 +1,18 @@
 """
 This module implements text replacement in Powerpoint files in pptx format.
-The text is searched and replaced in all possible places.
+
+The text is searched and replaced in all possible places while preserving the
+original character's formatting.
+
+Text replacement can be configured to leave certain slides untouched (by specifying
+which slides should be processed), or to not touching text in tables, charts or
+text frames in any of the shapes.
+
+This module can be imported and the class python_pptx_text_replacer used directly
+or it can be called as main and given parameters to define what needs to be done.
 """
- 
+
+import os
 import sys
 import argparse
 import re
@@ -21,13 +31,21 @@ class python_pptx_text_replacer:
     The text is searched and replaced in all possible places.
     """
  
-    def __init__(self, presentation_file_name, tables=True, charts=True, slides=''):
+    def __init__(self, presentation_file_name,
+                 tables=True,
+                 charts=True,
+                 textframes=True,
+                 slides=''):
+        
         self._replacements = []
         self._collected_replacements = []
         self._presentation_file_name = presentation_file_name
+        if not os.path.exists(self._presentation_file_name):
+            raise ValueError("Presentation file %s does not exist." % ( self._presentation_file_name ))
         self._presentation = Presentation(presentation_file_name)
         self._tables = tables
         self._charts = charts
+        self._textframes = textframes
         slide_cnt = len(self._presentation.slides)
         if len(slides.strip())==0:
             self._slides = [ True ] * slide_cnt
@@ -230,7 +248,10 @@ class python_pptx_text_replacer:
         for shape in shape_list_parent.shapes:
             print("%sShape[%s, id=%s, type=%s]" % ( "  "*level, shape_list_parent.shapes.index(shape), shape.shape_id, shape.shape_type ))
             if shape.has_text_frame:
-                self._process_text_frame(level+1,shape.text_frame)
+                if self._textframes:
+                    self._process_text_frame(level+1,shape.text_frame)
+                else:
+                    print("%s... skipped" % ("  "*(level+2)))
             if shape.has_table:
                 table = shape.table
                 row_cnt = len(table.rows)
@@ -276,19 +297,31 @@ class python_pptx_text_replacer:
                     print("%s... skipped" % ( "  "*(level+2)))
 
 if __name__ == '__main__':
-    p = argparse.ArgumentParser(description=__doc__, epilog="The parameters --match and --replace can be specified multiple times. They are paired up in the order of their appearance.\n\nThe slide list given with --slides must be a comma-separaated list of slide numbers from 1 to the number of slides contained in the presentation or slide number ranges of the kind '4-16'. If the second number is ommitted, like in '4-' the range includes everything from the first number up to the last slide in the file.")
+    p = argparse.ArgumentParser(description=__doc__,
+                                prog='python-pptx-text-replacer',
+                                formatter_class=argparse.RawDescriptionHelpFormatter,
+                                epilog="""
+The parameters --match and --replace can be specified multiple times.
+They are paired up in the order of their appearance.
+
+The slide list given with --slides must be a comma-separated list of
+slide numbers from 1 to the number of slides contained in the presentation
+or slide number ranges of the kind '4-16'. If the second number is omitted,
+like in '4-' the range includes everything from the slide identified by the
+first number up to the last slide in the file.
+""")
     p.add_argument('--match',   '-m',
                    action='append',
                    required=True,
                    dest='matches',
                    metavar='<match>',
-                   help='the match to look for')
+                   help='the string to look for and to be replaced')
     p.add_argument('--replace', '-r',
                    action='append',
                    required=True,
                    dest='replacements',
                    metavar='<replacement>',
-                   help="the matches' replacement")
+                   help="the replacement for all the matches' occurrences")
     p.add_argument('--input',   '-i',
                    action='store',
                    required=True,
@@ -300,11 +333,25 @@ if __name__ == '__main__':
                    metavar='<output file>',
                    help="the file to write the changed presentation to")
     p.add_argument('--slides', '-s',
-                   metavar='<list of slide numbers>',
+                   metavar='<list of slide numbers to process>',
                    action='store',
                    required=False,
                    default='',
                    help="A comma-separated list of slide numbers (1-based) to restrict processing to, i.e. '2,4,6-10'")
+    p.add_argument('--text-frames',  '-f',
+                   action='store_const',
+                   dest='textframes',
+                   const=True,
+                   required=False,
+                   default=True,
+                   help="process text frames in any shape as well (default)")
+    p.add_argument('--no-text-frames','-F',
+                   action='store_const',
+                   dest='charts',
+                   const=False,
+                   required=False,
+                   default=True,
+                   help="do not process any text frames in shapes")
     p.add_argument('--tables',  '-t',
                    action='store_const',
                    dest='tables',
@@ -340,14 +387,20 @@ if __name__ == '__main__':
         print("There must be as many match-strings (-m) as there are replacement-strings (-r)",file=sys.stderr)
         sys.exit(1)
 
-    print(ns)
+    try:
+        replacer = python_pptx_text_replacer(ns.input,tables=ns.tables,
+                                                      charts=ns.charts,
+                                                      textframes=ns.textframes,
+                                                      slides=ns.slides)
+        replacements = []
+        for m in range(0,len(ns.matches)):
+            replacements.append( ( ns.matches[m], ns.replacements[m] ) )
+        
+        replacer.replace_text(replacements)
+        replacer.write_presentation_to_file(ns.output)
 
-    replacer = python_pptx_text_replacer(ns.input,tables=ns.tables,charts=ns.charts,slides=ns.slides)
-    replacements = []
-    for m in range(0,len(ns.matches)):
-        replacements.append( ( ns.matches[m], ns.replacements[m] ) )
-    replacer.replace_text(replacements)
-    replacer.write_presentation_to_file(ns.output)
-    sys.exit(0)
+        sys.exit(0)
+    except ValueError as err:
+        print(str(err),file=sys.stderr)
+        sys.exit(1)
  
-
