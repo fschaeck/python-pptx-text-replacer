@@ -160,8 +160,8 @@ class python_pptx_text_replacer:
             font.color.brightness = saved['color.brightness']
             font.color.theme_color = saved['color.theme_color']
         elif saved['color.type'] == MSO_COLOR_TYPE.RGB:
-            if saved['rgb'] is not None:
-                font.color.rgb = RGBColor.from_string(saved['rgb'])
+            if saved['color.rgb'] is not None:
+                font.color.rgb = RGBColor.from_string(saved['color.rgb'])
             else:
                 font.color.rgb = None
         # font.fill = saved['fill']
