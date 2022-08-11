@@ -18,6 +18,7 @@ import argparse
 import re
 
 from pptx import Presentation
+from pptx.dml.color import RGBColor
 from pptx.chart.data import CategoryChartData
 from pptx.shapes.graphfrm import GraphicFrame
 from pptx.enum.chart import XL_CHART_TYPE
