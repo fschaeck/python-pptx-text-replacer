@@ -1,5 +1,5 @@
 """
-This module implements text replacement in Powerpoint files in pptx format.
+This package implements text replacement in Powerpoint files in pptx format.
 
 The text is searched and replaced in all possible places while preserving the
 original character's formatting.
@@ -8,7 +8,7 @@ Text replacement can be configured to leave certain slides untouched (by specify
 which slides should be processed), or to not touching text in tables, charts or
 text frames in any of the shapes.
 
-This module can be imported and the class python_pptx_text_replacer used directly
+This package can be imported and the class python_pptx_text_replacer used directly
 or it can be called as main and given parameters to define what needs to be done.
 """
 
@@ -296,7 +296,7 @@ class python_pptx_text_replacer:
                 else:
                     print("%s... skipped" % ( "  "*(level+2)))
 
-if __name__ == '__main__':
+def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 prog='python-pptx-text-replacer',
                                 formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -385,7 +385,7 @@ first number up to the last slide in the file.
 
     if len(ns.matches) != len(ns.replacements):
         print("There must be as many match-strings (-m) as there are replacement-strings (-r)",file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     try:
         replacer = python_pptx_text_replacer(ns.input,tables=ns.tables,
@@ -399,8 +399,10 @@ first number up to the last slide in the file.
         replacer.replace_text(replacements)
         replacer.write_presentation_to_file(ns.output)
 
-        sys.exit(0)
+        return 0
     except ValueError as err:
         print(str(err),file=sys.stderr)
-        sys.exit(1)
- 
+        return 1
+
+if __name__ == '__main__':
+    sys.exit(main())

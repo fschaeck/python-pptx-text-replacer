@@ -135,3 +135,6 @@ dmypy.json
 .project
 .pydevproject
 .settings/
+
+# Local stuff not meant for git
+local-resources/

@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "python-pptx-text-replacer"
+authors = [
+  { name="Frank Schäckermann", email="pypi-fschaeckermann@snkmail.com" },
+]
+description = "This package implements text replacement in Powerpoint files in pptx format."
+readme = "README.md"
+keywords = [
+  "PowerPoint",
+  "pptx",
+  "Text Replacement",
+]
+license = "GPL-3.0-only"
+requires-python = ">=2.7"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 2.7",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Topic :: Utilities",
+]
+
+dependencies = [ "python-pptx" ]
+
+dynamic = [ "version" ]
+
+[project.urls]
+"Homepage" = "https://github.com/fschaeck/python-pptx-text-replacer"
+"Bug Tracker" = "https://github.com/fschaeck/python-pptx-text-replacer/issues"
+
+[project.scripts]
+python_pptx_text_replacer = "python_pptx_text_replacer:main"
