@@ -1,6 +1,12 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import print_function, unicode_literals
+
 import os
 import sys
 import unittest
+from io import open as open, StringIO
+from python_pptx_text_replacer import TextReplacer
 
 ENCODING = 'utf-8'
 
@@ -21,6 +27,60 @@ else:
             return strg
     def unichr(char):  # @ReservedAssignment
         return chr(char)
+
+
+class Capture(object):
+    def __init__(self, stdin_data):
+        if stdin_data is not None:
+            if PY2 and type(stdin_data) != unicode or not PY2 and type(stdin_data) != str:
+                raise ValueError('Programming error: Capture(stdin_data) not unicode.')
+        self._stdin_data = stdin_data  # must be unicode
+        self._stdin = None
+        self._stdout_data = []
+        self._stderr_data = []
+
+    def __enter__(self):
+        self._stdout = sys.stdout
+        sys.stdout = self._stringio_out = StringIO()
+        self._stderr = sys.stderr
+        sys.stderr = self._stringio_err = StringIO()
+        if self._stdin_data is not None:
+            self._stdin = sys.stdin
+            sys.stdin = self._stringio_in = StringIO(self._stdin_data)
+        else:
+            self._stdin = None
+        return self
+
+    def __exit__(self, *args):  # @UnusedVariable
+        content = self._stringio_out.getvalue()
+        if len(content) == 0:
+            pass
+        elif content.endswith('\n'):
+            self._stdout_data.extend(lne+'\n' for lne in content[:-1].split('\n'))
+        else:
+            self._stdout_data.extend(lne+'\n' for lne in content.split('\n'))
+        sys.stdout = self._stdout
+        del self._stringio_out
+
+        content = self._stringio_err.getvalue()
+        if len(content) == 0:
+            pass
+        elif content.endswith('\n'):
+            self._stderr_data.extend(lne+'\n' for lne in content[:-1].split('\n'))
+        else:
+            self._stderr_data.extend(lne+'\n' for lne in content.split('\n'))
+        sys.stderr = self._stderr
+        del self._stringio_err
+
+        if self._stdin is not None:
+            del self._stringio_in
+            sys.stdin = self._stdin
+
+    def stdout(self):
+        return self._stdout_data
+
+    def stderr(self):
+        return self._stderr_data
 
 
 class test_text_replacer(unittest.TestCase):
@@ -100,8 +160,65 @@ class test_text_replacer(unittest.TestCase):
 
         return [] if equal else diff
 
-    def do_test(self,textframes,tables,charts,replacements,expected_stdout,expected_stderr):
-        pass
+    def do_test(self,input_file,
+                     textframes,tables,charts,
+                     slides,
+                     replacements,
+                     expected_stdout,
+                     expected_stderr):
+        rc = 0
+        with Capture(None) as capture:
+            try:
+                replacer = TextReplacer(input_file,
+                                        textframes=textframes,
+                                        tables=tables,
+                                        charts=charts,
+                                        slides=slides)
+                replacer.replace_text(replacements)
+            except ValueError as err:
+                print(str(err),file=sys.stderr)
+                rc = 1
+        result = []
+        if expected_stdout is not None:
+             result.extend(self.check_output(ENCODING,'stdout',expected_stdout,capture.stdout()))
+        if expected_stderr is not None:
+            result.extend(self.check_output(ENCODING,'stderr',expected_stderr,capture.stderr()))
+
+        if len(result) > 0:
+            try:
+                result = '\n'.join(result)
+                self.fail(result)
+            except TypeError:
+                self.fail(str(result))
+
 
     def test_01_change_nothing(self):
-        self.do_test(False,False,False,[('cell','CELL')],[''],None)
+        self.do_test('tests/data/Test-Presentation.pptx',False,False,False,'',[('cell','CELL')],
+"""Presentation[tests/data/Test-Presentation.pptx]
+  Slide[1, id=256] with title 'Trying a table'
+    Shape[0, id=2, type=PLACEHOLDER (14)]
+      ... skipped
+    Shape[1, id=4, type=TABLE (19)]
+      Table[4,4]
+        ... skipped
+  Slide[2, id=257] with title 'A Chart'
+    Shape[0, id=2, type=PLACEHOLDER (14)]
+      ... skipped
+    Shape[1, id=3, type=CHART (3)]
+      Chart of type COLUMN_STACKED (52)
+        ... skipped
+  Slide[3, id=258] with title 'A Textbox'
+    Shape[0, id=2, type=PLACEHOLDER (14)]
+      ... skipped
+    Shape[1, id=3, type=TEXT_BOX (17)]
+      ... skipped
+  Slide[4, id=259] with title 'Grouped Shapes'
+    Shape[0, id=2, type=PLACEHOLDER (14)]
+      ... skipped
+    Shape[1, id=5, type=GROUP (6)]
+      Shape[0, id=3, type=AUTO_SHAPE (1)]
+        ... skipped
+      Shape[1, id=4, type=AUTO_SHAPE (1)]
+        ... skipped
+"""
+,'')

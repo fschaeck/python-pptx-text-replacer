@@ -36,4 +36,4 @@ dynamic = [ "version" ]
 "Bug Tracker" = "https://github.com/fschaeck/python-pptx-text-replacer/issues"
 
 [project.scripts]
-python_pptx_text_replacer = "python_pptx_text_replacer:main"
+python-pptx-text-replacer = "python_pptx_text_replacer.TextReplacer:main"

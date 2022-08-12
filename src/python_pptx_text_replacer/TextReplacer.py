@@ -26,7 +26,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.dml import MSO_COLOR_TYPE
 from pptx.util import Inches
 
-class python_pptx_text_replacer:
+class TextReplacer:
     """
     This class implements text replacement in Powerpoint files in pptx format.
     The text is searched and replaced in all possible places.
@@ -83,9 +83,27 @@ class python_pptx_text_replacer:
 
 
     def replace_text(self, replacements):
-        print(self._replacements)
         self._replacements = list( (self._ensure_unicode(match),self._ensure_unicode(repl)) for (match,repl) in replacements )
-        self._collected_replacements.append(replacements)
+        self._collected_replacements.extend(replacements)
+
+        for repl in self._replacements:
+            if len(repl)==0:
+                raise ValueError("A match string can not be empty.")
+
+        for i in range(0,len(self._replacements)-1):
+            srch_i = self._replacements[i][0]
+            repl_i = self._replacements[i][1]
+            for j in range(i+1, len(self._replacements)):
+                srch_j = self._replacements[j][0]
+                repl_j = self._replacements[j][1]
+                if repl_i.find(srch_j)>=0:
+                    print("WARNING: Replacement string %s at index %s matches search string %s at index %s. This may produce unintended results due to chained replacements!" % ( repl_i, i, srch_j, j))
+                if srch_j.find(srch_i)>=0:
+                    if srch_j.replace(srch_i,repl_i) == repl_j:
+                        print("WARNING: Match/Replacement ('%s','%s') at index %s is obsolete due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
+                    else:
+                        print("WARNING: Match/Replacement ('%s','%s') at index %s will never match due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
+
         # loop through all slides
         slide_idx = 0
         print("Presentation[%s]" % (self._presentation_file_name))
@@ -121,18 +139,19 @@ class python_pptx_text_replacer:
                 to_match = match
                 to_replace = replacement
                 paragraph_idx = 0
+                pos_in_paragraph = pos_in_text_frame
                 for paragraph in text_frame.paragraphs:
                     paragraph_len = len(self._ensure_unicode(paragraph.text))
-                    if pos_in_text_frame >= paragraph_len:
-                        pos_in_text_frame -= paragraph_len+1 # +1 for the new-line-character
+                    if pos_in_paragraph >= paragraph_len:
+                        pos_in_paragraph -= paragraph_len+1 # +1 for the new-line-character
                     else:
                         # this is the paragraph that contains the beginning of the match
-                        (to_match, to_replace) = self._replace_runs_text(level+1, paragraph_idx, paragraph.runs, pos_in_text_frame, to_match, to_replace)
+                        (to_match, to_replace) = self._replace_runs_text(level+1, paragraph_idx, paragraph.runs, pos_in_paragraph, to_match, to_replace)
                         if len(to_match) == 0: # are we done with this match
                             break;
-                        pos_in_text_frame = 0
+                        pos_in_paragraph = 0
                     paragraph_idx += 1
-                pos_in_text_frame = self._ensure_unicode(text_frame.text).find(match)
+                pos_in_text_frame = self._ensure_unicode(text_frame.text).find(match,pos_in_text_frame+len(replacement))
 
     def _save_font_configuration(self, font):
         saved = {}
@@ -252,7 +271,7 @@ class python_pptx_text_replacer:
                 if self._textframes:
                     self._process_text_frame(level+1,shape.text_frame)
                 else:
-                    print("%s... skipped" % ("  "*(level+2)))
+                    print("%s... skipped" % ("  "*(level+1)))
             if shape.has_table:
                 table = shape.table
                 row_cnt = len(table.rows)
@@ -299,7 +318,7 @@ class python_pptx_text_replacer:
 
 def main():
     p = argparse.ArgumentParser(description=__doc__,
-                                prog='python-pptx-text-replacer',
+                                prog='TextReplacer',
                                 formatter_class=argparse.RawDescriptionHelpFormatter,
                                 epilog="""
 The parameters --match and --replace can be specified multiple times.
@@ -389,10 +408,11 @@ first number up to the last slide in the file.
         return 1
 
     try:
-        replacer = python_pptx_text_replacer(ns.input,tables=ns.tables,
-                                                      charts=ns.charts,
-                                                      textframes=ns.textframes,
-                                                      slides=ns.slides)
+        replacer = TextReplacer(ns.input,
+                                tables=ns.tables,
+                                charts=ns.charts,
+                                textframes=ns.textframes,
+                                slides=ns.slides)
         replacements = []
         for m in range(0,len(ns.matches)):
             replacements.append( ( ns.matches[m], ns.replacements[m] ) )
