@@ -20,11 +20,12 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest python-pptx
+          python -m pip install pytest pytest-cov python-pptx
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Test with pytest
         run: |
-          pytest
+          PYTHONPATH=src:$PYTHONPATH
+          pytest --cov=python_pptx_text_replacer tests
 
       - name: Lint with flake8
         if: matrix.python-version=='3.10'
