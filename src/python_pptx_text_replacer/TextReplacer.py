@@ -32,7 +32,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.dml import MSO_COLOR_TYPE
 from pptx.util import Inches
 
-__version__ = "v0.0.1a9"
+__version__ = "v0.0.1"
 
 class TextReplacer:
     """

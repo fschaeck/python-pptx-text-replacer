@@ -97,5 +97,5 @@ jobs:
           try:
             repl=TextReplacer('not found')
           except ValueError as err:
-            pass"
+            print(str(err.args[0]))"
           python-pptx-text-replacer --help
