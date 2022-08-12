@@ -3,8 +3,29 @@ name: Publish Python package to PyPI and TestPyPI
 on: push
 
 jobs:
-  build-n-publish:
-    name: Build and publish Python package to PyPI and TestPyPI
+  linting:
+    name: Linting the source code before anything else
+    needs: test-for-all-python-versions
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Lint with flake8 (but only once with Python 3.10)
+        run: |
+          python -m pip install flake8 
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+
+  test-for-all-python-versions:
+    name: Test the package for all supported Python versions
+    needs: linting
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -24,26 +45,25 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Test with pytest
         run: |
-          PYTHONPATH=src:$PYTHONPATH
-          pytest --cov=python_pptx_text_replacer tests
+          PYTHONPATH=./src:$PYTHONPATH pytest --cov=python_pptx_text_replacer tests
 
-      - name: Lint with flake8
-        if: matrix.python-version=='3.10'
-        run: |
-          python -m pip install flake8 
-          # stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+  build-and-publish:
+    name: Test the package for all supported Python versions
+    needs: test-for-all-python-versions
+    runs-on: ubuntu-latest
     
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
       - name: Install pypa/build
-        if: matrix.python-version=='3.10'
         run: python -m pip install build --user
       - name: Build a binary wheel and a source tarball
-        if: matrix.python-version=='3.10'
         run: python -m build --sdist --wheel --outdir dist/
       - name: Publish package to Test PyPI
-        if: matrix.python-version=='3.10'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TESTPYPI_API_TOKEN }}
@@ -54,3 +74,27 @@ jobs:
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
 
+  test-installation:
+    name: Test installation and usage of the package
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install the published package and it's depenedencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install python-pptx-text-replacer
+      - name: Running the installed package 
+        run: |
+          python -c "from python_pptx_text_replacer import TextReplacer 
+          try:
+            repl=TextReplacer('not found')
+          except ValueError as err:
+            pass"
+          python-pptx-text-replacer --help
