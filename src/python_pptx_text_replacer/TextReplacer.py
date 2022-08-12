@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 """
 This package implements text replacement in Powerpoint files in pptx format.
 
@@ -18,8 +19,9 @@ import sys
 import argparse
 import re
 
-import collections
-import collections.abc
+if sys.version_info[0]==3:
+    import collections
+    import collections.abc
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
