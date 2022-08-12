@@ -404,7 +404,7 @@ first number up to the last slide in the file.
     ns = p.parse_args(sys.argv[1:])
 
     if len(ns.matches) != len(ns.replacements):
-        print("There must be as many match-strings (-m) as there are replacement-strings (-r)",file=sys.stderr)
+        sys.stderr.write("There must be as many match-strings (-m) as there are replacement-strings (-r)\n")
         return 1
 
     try:
@@ -422,7 +422,7 @@ first number up to the last slide in the file.
 
         return 0
     except ValueError as err:
-        print(str(err),file=sys.stderr)
+        sys.stderr.write(str(err.args[0]))
         return 1
 
 if __name__ == '__main__':
