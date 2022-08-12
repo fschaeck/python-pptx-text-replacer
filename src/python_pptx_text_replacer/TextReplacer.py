@@ -11,6 +11,7 @@ text frames in any of the shapes.
 This package can be imported and the class python_pptx_text_replacer used directly
 or it can be called as main and given parameters to define what needs to be done.
 """
+from __future__ import print_function, unicode_literals
 
 import os
 import sys
@@ -40,7 +41,7 @@ class TextReplacer:
         
         self._replacements = []
         self._collected_replacements = []
-        self._presentation_file_name = presentation_file_name
+        self._presentation_file_name = self._ensure_unicode(presentation_file_name)
         if not os.path.exists(self._presentation_file_name):
             raise ValueError("Presentation file %s does not exist." % ( self._presentation_file_name ))
         self._presentation = Presentation(presentation_file_name)
@@ -404,7 +405,7 @@ first number up to the last slide in the file.
     ns = p.parse_args(sys.argv[1:])
 
     if len(ns.matches) != len(ns.replacements):
-        sys.stderr.write("There must be as many match-strings (-m) as there are replacement-strings (-r)\n")
+        print("There must be as many match-strings (-m) as there are replacement-strings (-r)", file=sys.stderr)
         return 1
 
     try:
@@ -422,7 +423,7 @@ first number up to the last slide in the file.
 
         return 0
     except ValueError as err:
-        sys.stderr.write(str(err.args[0]))
+        print(str(err.args[0]), file=sys.stderr)
         return 1
 
 if __name__ == '__main__':
