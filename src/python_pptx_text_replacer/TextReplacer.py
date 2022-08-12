@@ -18,6 +18,9 @@ import sys
 import argparse
 import re
 
+import collections
+import collections.abc
+
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.chart.data import CategoryChartData
@@ -26,6 +29,8 @@ from pptx.enum.chart import XL_CHART_TYPE
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.dml import MSO_COLOR_TYPE
 from pptx.util import Inches
+
+__version__ = "v0.0.1a9"
 
 class TextReplacer:
     """
@@ -318,8 +323,8 @@ class TextReplacer:
                     print("%s... skipped" % ( "  "*(level+2)))
 
 def main():
+    copyleft = "python-pptx-text-replacer %s (c) Frank Schäckermann 2022" % __version__
     p = argparse.ArgumentParser(description=__doc__,
-                                prog='TextReplacer',
                                 formatter_class=argparse.RawDescriptionHelpFormatter,
                                 epilog="""
 The parameters --match and --replace can be specified multiple times.
@@ -330,7 +335,10 @@ slide numbers from 1 to the number of slides contained in the presentation
 or slide number ranges of the kind '4-16'. If the second number is omitted,
 like in '4-' the range includes everything from the slide identified by the
 first number up to the last slide in the file.
-""")
+
+%s
+%s
+""" % ( "="*len(copyleft), copyleft ) )
     p.add_argument('--match',   '-m',
                    action='append',
                    required=True,

@@ -87,9 +87,10 @@ jobs:
 
       - name: Install the published package and it's depenedencies
         run: |
+          version=$(grep '^\s*__version__\s*=\s*"' src/python_pptx_text_replacer/__init__.py | cut -d\" -f 2)
           python -m pip install --upgrade pip
           python -m pip install python-pptx
-          python -m pip install --no-deps --index-url https://test.pypi.org/legacy/ python-pptx-text-replacer
+          python -m pip install --index-url https://test.pypi.org/pypi/ --extra-index-url https://pypi.org/simple/ python-pptx-text-replacer==${version}
       - name: Running the installed package 
         run: |
           python -c "from python_pptx_text_replacer import TextReplacer 
