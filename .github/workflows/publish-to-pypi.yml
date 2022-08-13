@@ -44,8 +44,19 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Test with pytest
         run: |
-          PYTHONPATH=./src:$PYTHONPATH pytest --cov=python_pptx_text_replacer tests
-
+          PYTHONPATH=./src:$PYTHONPATH pytest --cov=python_pptx_text_replacer -cov-report=xml tests
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage/reports/
+          env_vars: OS,PYTHON
+          fail_ci_if_error: true
+          files: ./coverage1.xml,./coverage2.xml
+          flags: unittests
+          name: codecov-umbrella
+          path_to_rite_report: ./coverage/codecov_report.txt
+          verbose: true
   build-and-publish:
     name: Build and publish package python_pptx_text_replacer
     needs: test-for-all-python-versions
@@ -67,8 +78,9 @@ jobs:
         with:
           password: ${{ secrets.TESTPYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
+          skip_existing: True
       - name: Publish package to PyPI
-        if: startsWith(github.ref, 'ref/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
