@@ -378,7 +378,7 @@ first number up to the last slide in the file.
                    help="process text frames in any shape as well (default)")
     p.add_argument('--no-text-frames','-F',
                    action='store_const',
-                   dest='charts',
+                   dest='textframes',
                    const=False,
                    required=False,
                    default=True,

@@ -7,6 +7,7 @@ import sys
 import unittest
 from io import open as open, StringIO
 from python_pptx_text_replacer import TextReplacer
+from python_pptx_text_replacer.TextReplacer import main
 
 ENCODING = 'utf-8'
 
@@ -192,9 +193,41 @@ class test_text_replacer(unittest.TestCase):
                 self.fail(str(result))
 
 
-    def test_01_change_nothing(self):
-        self.do_test('tests/data/Test-Presentation.pptx',False,False,False,'',[('cell','CELL')],
-"""Presentation[tests/data/Test-Presentation.pptx]
+    def do_test_via_main(self,input_file,
+                         textframes,tables,charts,
+                         slides,
+                         replacements,
+                         expected_stdout,
+                         expected_stderr):
+        rc = 0
+        with Capture(None) as capture:
+            argv = ['TextReplacer',
+                    '-i',input_file,
+                    '-o','/dev/null',
+                    '-t' if tables else '-T',
+                    '-c' if charts else '-C',
+                    '-f' if textframes else '-F',
+                    '-s',slides ]
+            for (match,repl) in replacements:
+                argv.extend(['-m',match,'-r',repl])
+            sys.argv = argv
+            main()
+
+        result = []
+        if expected_stdout is not None:
+             result.extend(self.check_output(ENCODING,'stdout',expected_stdout,capture.stdout()))
+        if expected_stderr is not None:
+            result.extend(self.check_output(ENCODING,'stderr',expected_stderr,capture.stderr()))
+
+        if len(result) > 0:
+            try:
+                result = '\n'.join(result)
+                self.fail(result)
+            except TypeError:
+                self.fail(str(result))
+
+
+    do_nothing_result="""Presentation[tests/data/Test-Presentation.pptx]
   Slide[1, id=256] with title 'Trying a table'
     Shape[0, id=2, type=PLACEHOLDER (14)]
       ... skipped
@@ -221,4 +254,9 @@ class test_text_replacer(unittest.TestCase):
       Shape[1, id=4, type=AUTO_SHAPE (1)]
         ... skipped
 """
-,'')
+
+    def test_01_change_nothing(self):
+        self.do_test('tests/data/Test-Presentation.pptx',False,False,False,'',[('cell','CELL')],self.do_nothing_result,'')
+
+    def test_02_change_nothing_via_main(self):
+        self.do_test_via_main('tests/data/Test-Presentation.pptx',False,False,False,'',[('cell','CELL')],self.do_nothing_result,'')
