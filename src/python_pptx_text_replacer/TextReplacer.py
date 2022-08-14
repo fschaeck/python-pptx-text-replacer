@@ -18,10 +18,14 @@ import os
 import sys
 import argparse
 import re
+import unicodedata
 
 if sys.version_info[0]==3:
+    PY2 = False
     import collections
     import collections.abc
+else:
+    PY2 = True
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
@@ -32,7 +36,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.dml import MSO_COLOR_TYPE
 from pptx.util import Inches
 
-__version__ = "v0.0.1"
+__version__ = "v0.0.2"
 
 class TextReplacer:
     """
@@ -136,7 +140,7 @@ class TextReplacer:
         return self._presentation_file_name
 
     def _ensure_unicode(self, text):
-        if isinstance(text,(str,bytes) if sys.version_info.major==2 else bytes):
+        if isinstance(text,(str,bytes) if PY2 else bytes):
             return text.decode('UTF-8')
         return text
 
@@ -294,7 +298,7 @@ class TextReplacer:
 
 
     def _make_printable_char(self, char):
-        if char=='\n' or char.isprintable():
+        if char=='\n' or unicodedata.category(char) not in [ "Cc","Cn" ]:
             return char
         char_ord = ord(char)
         if char_ord<=0xFFFF:

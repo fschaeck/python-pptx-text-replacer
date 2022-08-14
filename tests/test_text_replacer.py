@@ -9,26 +9,7 @@ from io import open as open, StringIO
 from python_pptx_text_replacer import TextReplacer
 from python_pptx_text_replacer.TextReplacer import main
 
-ENCODING = 'utf-8'
-
 PY2 = sys.version_info[0] == 2
-if PY2:
-    def make_unicode(strg, encoding):
-        if type(strg) == str:
-            return unicode(strg, encoding)
-        else:
-            return strg
-else:
-    class unicode(object):  # @ReservedAssignment
-        pass
-    def make_unicode(strg, encoding):
-        if type(strg) == bytes:
-            return strg.decode(encoding)
-        else:
-            return strg
-    def unichr(char):  # @ReservedAssignment
-        return chr(char)
-
 
 class Capture(object):
     def __init__(self, stdin_data):
@@ -94,27 +75,24 @@ class test_text_replacer(unittest.TestCase):
         pass
 
 
-    def make_list(self, encoding, content):
-        if type(content) == str or PY2 and type(content) == unicode:
-            if len(content) == 0:
-                return []
-            content = make_unicode(content, encoding)
+    def make_list(self, content):
+        if len(content)==0:
+            return []
+        elif type(content) == list:
+            return content
+        else:
             if content.endswith('\n'):
                 return list(lne+'\n' for lne in content[:-1].split('\n'))
             else:
                 return list(lne+'\n' for lne in content.split('\n'))
-        elif type(content) == list:
-            return list(make_unicode(lne, encoding) for lne in content)
-        raise ValueError('Programming error: invalid content parameter type ({}) for make_list'
-                         .format(type(content)))
 
 
-    def check_output(self, encoding, content_name, expected_content, actual_content):
+    def check_output(self, content_name, expected_content, actual_content):
         MISSING_MARKER = '<missing>'
         UNEXPECTED_MARKER = '<unexpected>'
 
-        list1 = self.make_list(encoding, expected_content)
-        list2 = self.make_list(encoding, actual_content)
+        list1 = self.make_list(expected_content)
+        list2 = self.make_list(actual_content)
 
         content_name = os.path.basename(content_name)
         tag1 = 'expected '+content_name
@@ -182,9 +160,9 @@ class test_text_replacer(unittest.TestCase):
                 rc = 1
         result = []
         if expected_stdout is not None:
-             result.extend(self.check_output(ENCODING,'stdout',expected_stdout,capture.stdout()))
+             result.extend(self.check_output('stdout',expected_stdout,capture.stdout()))
         if expected_stderr is not None:
-            result.extend(self.check_output(ENCODING,'stderr',expected_stderr,capture.stderr()))
+            result.extend(self.check_output('stderr',expected_stderr,capture.stderr()))
 
         if len(result) > 0:
             try:
@@ -219,9 +197,9 @@ class test_text_replacer(unittest.TestCase):
 
         result = []
         if expected_stdout is not None:
-             result.extend(self.check_output(ENCODING,'stdout',expected_stdout,capture.stdout()))
+             result.extend(self.check_output('stdout',expected_stdout,capture.stdout()))
         if expected_stderr is not None:
-            result.extend(self.check_output(ENCODING,'stderr',expected_stderr,capture.stderr()))
+            result.extend(self.check_output('stderr',expected_stderr,capture.stderr()))
 
         if len(result) > 0:
             try:
@@ -287,27 +265,27 @@ class test_text_replacer(unittest.TestCase):
           Run[0,3]: ' you?' -> 'e!'
 ''','')
 
-    result_regex_across_runs = r'''Presentation[tests/data/test-04.pptx]
+    result_regex_across_runs = """Presentation[tests/data/test-04.pptx]
   Slide[1, id=256] with title ''
     Shape[0, id=2, type=PLACEHOLDER (14)]
       TextFrame: ''
         Paragraph[0]: ''
         Trying to match 'How ..(.) you\?' -> no match
     Shape[1, id=3, type=TEXT_BOX (17)]
-      TextFrame: 'Hello there! How are you? What\u0009is your name?'
-        Paragraph[0]: 'Hello there! How are you? What\u0009is your name?'
+      TextFrame: 'Hello there! How are you? What\\u0009is your name?'
+        Paragraph[0]: 'Hello there! How are you? What\\u0009is your name?'
           Run[0,0]: 'Hello there! '
           Run[0,1]: 'How '
           Run[0,2]: 'are'
           Run[0,3]: ' you?'
           Run[0,4]: ' What'
-          Run[0,5]: '\u0009'
+          Run[0,5]: '\\u0009'
           Run[0,6]: 'is your name?'
-        Trying to match 'How ..(.) you\?' -> matched at 13: 'How are you?' -> 'I'm fine!'
+        Trying to match 'How ..(.) you\\?' -> matched at 13: 'How are you?' -> 'I'm fine!'
           Run[0,1]: 'How ' -> 'I'm '
           Run[0,2]: 'are' -> 'fin'
           Run[0,3]: ' you?' -> 'e!'
-'''
+"""
 
     def test_04_regex_across_runs(self):
         self.do_test('tests/data/test-04.pptx',True,False,False,'',[(r'How ..(.) you\?',r"I'm fin\1!")],self.result_regex_across_runs,'',use_regex=True)
