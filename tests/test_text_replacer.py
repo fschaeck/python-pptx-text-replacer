@@ -166,7 +166,8 @@ class test_text_replacer(unittest.TestCase):
                      slides,
                      replacements,
                      expected_stdout,
-                     expected_stderr):
+                     expected_stderr,
+                     use_regex=False):
         rc = 0
         with Capture(None) as capture:
             try:
@@ -175,7 +176,7 @@ class test_text_replacer(unittest.TestCase):
                                         tables=tables,
                                         charts=charts,
                                         slides=slides)
-                replacer.replace_text(replacements)
+                replacer.replace_text(replacements,use_regex=use_regex)
             except ValueError as err:
                 print(str(err),file=sys.stderr)
                 rc = 1
@@ -198,7 +199,8 @@ class test_text_replacer(unittest.TestCase):
                          slides,
                          replacements,
                          expected_stdout,
-                         expected_stderr):
+                         expected_stderr,
+                         use_regex=False):
         rc = 0
         with Capture(None) as capture:
             argv = ['TextReplacer',
@@ -210,6 +212,8 @@ class test_text_replacer(unittest.TestCase):
                     '-s',slides ]
             for (match,repl) in replacements:
                 argv.extend(['-m',match,'-r',repl])
+            if use_regex:
+                argv.append('-x')
             sys.argv = argv
             main()
 
@@ -260,3 +264,54 @@ class test_text_replacer(unittest.TestCase):
 
     def test_02_change_nothing_via_main(self):
         self.do_test_via_main('tests/data/Test-Presentation.pptx',False,False,False,'',[('cell','CELL')],self.do_nothing_result,'')
+
+    def test_03_across_runs(self):
+        self.do_test('tests/data/test-03.pptx',True,False,False,'',[('How are you?',"I'm fine!")],
+'''Presentation[tests/data/test-03.pptx]
+  Slide[1, id=256] with title ''
+    Shape[0, id=2, type=PLACEHOLDER (14)]
+      TextFrame: ''
+        Paragraph[0]: ''
+        Trying to match 'How are you?' -> no match
+    Shape[1, id=3, type=TEXT_BOX (17)]
+      TextFrame: 'Hello there! How are you? What is your name?'
+        Paragraph[0]: 'Hello there! How are you? What is your name?'
+          Run[0,0]: 'Hello there! '
+          Run[0,1]: 'How '
+          Run[0,2]: 'are'
+          Run[0,3]: ' you?'
+          Run[0,4]: ' What is your name?'
+        Trying to match 'How are you?' -> matched at 13
+          Run[0,1]: 'How ' -> 'I'm '
+          Run[0,2]: 'are' -> 'fin'
+          Run[0,3]: ' you?' -> 'e!'
+''','')
+
+    result_regex_across_runs = r'''Presentation[tests/data/test-04.pptx]
+  Slide[1, id=256] with title ''
+    Shape[0, id=2, type=PLACEHOLDER (14)]
+      TextFrame: ''
+        Paragraph[0]: ''
+        Trying to match 'How ..(.) you\?' -> no match
+    Shape[1, id=3, type=TEXT_BOX (17)]
+      TextFrame: 'Hello there! How are you? What\u0009is your name?'
+        Paragraph[0]: 'Hello there! How are you? What\u0009is your name?'
+          Run[0,0]: 'Hello there! '
+          Run[0,1]: 'How '
+          Run[0,2]: 'are'
+          Run[0,3]: ' you?'
+          Run[0,4]: ' What'
+          Run[0,5]: '\u0009'
+          Run[0,6]: 'is your name?'
+        Trying to match 'How ..(.) you\?' -> matched at 13: 'How are you?' -> 'I'm fine!'
+          Run[0,1]: 'How ' -> 'I'm '
+          Run[0,2]: 'are' -> 'fin'
+          Run[0,3]: ' you?' -> 'e!'
+'''
+
+    def test_04_regex_across_runs(self):
+        self.do_test('tests/data/test-04.pptx',True,False,False,'',[(r'How ..(.) you\?',r"I'm fin\1!")],self.result_regex_across_runs,'',use_regex=True)
+
+    def test_05_regex_across_runs_via_main(self):
+        self.do_test_via_main('tests/data/test-04.pptx',True,False,False,'',[(r'How ..(.) you\?',r"I'm fin\1!")],self.result_regex_across_runs,'',use_regex=True)
+

@@ -44,7 +44,8 @@ class TextReplacer:
                  tables=True,
                  charts=True,
                  textframes=True,
-                 slides=''):
+                 slides='',
+                 **kwargs):
         
         self._replacements = []
         self._collected_replacements = []
@@ -90,27 +91,29 @@ class TextReplacer:
                     self._slides[i] = True
 
 
-    def replace_text(self, replacements):
-        self._replacements = list( (self._ensure_unicode(match),self._ensure_unicode(repl)) for (match,repl) in replacements )
+    def replace_text(self, replacements, use_regex=False):
+        self._replacements = list( (self._ensure_unicode(srch),self._ensure_unicode(repl)) for (srch,repl) in replacements )
         self._collected_replacements.extend(replacements)
+        self._use_regex = use_regex
 
         for repl in self._replacements:
             if len(repl)==0:
                 raise ValueError("A match string can not be empty.")
 
-        for i in range(0,len(self._replacements)-1):
-            srch_i = self._replacements[i][0]
-            repl_i = self._replacements[i][1]
-            for j in range(i+1, len(self._replacements)):
-                srch_j = self._replacements[j][0]
-                repl_j = self._replacements[j][1]
-                if repl_i.find(srch_j)>=0:
-                    print("WARNING: Replacement string %s at index %s matches search string %s at index %s. This may produce unintended results due to chained replacements!" % ( repl_i, i, srch_j, j))
-                if srch_j.find(srch_i)>=0:
-                    if srch_j.replace(srch_i,repl_i) == repl_j:
-                        print("WARNING: Match/Replacement ('%s','%s') at index %s is obsolete due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
-                    else:
-                        print("WARNING: Match/Replacement ('%s','%s') at index %s will never match due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
+        if not use_regex:
+            for i in range(0,len(self._replacements)-1):
+                srch_i = self._replacements[i][0]
+                repl_i = self._replacements[i][1]
+                for j in range(i+1, len(self._replacements)):
+                    srch_j = self._replacements[j][0]
+                    repl_j = self._replacements[j][1]
+                    if repl_i.find(srch_j)>=0:
+                        print("WARNING: Replacement string %s at index %s matches search string %s at index %s. This may produce unintended results due to chained replacements!" % ( repl_i, i, srch_j, j))
+                    if srch_j.find(srch_i)>=0:
+                        if srch_j.replace(srch_i,repl_i) == repl_j:
+                            print("WARNING: Match/Replacement ('%s','%s') at index %s is obsolete due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
+                        else:
+                            print("WARNING: Match/Replacement ('%s','%s') at index %s will never match due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
 
         # loop through all slides
         slide_idx = 0
@@ -138,18 +141,36 @@ class TextReplacer:
         return text
 
     def _replace_text_in_text_frame(self, level, text_frame):
-        for (match, replacement) in self._replacements:
-            pos_in_text_frame = self._ensure_unicode(text_frame.text).find(match)
-            if pos_in_text_frame < 0:
-                print("%sTrying to match '%s' -> no match" % ( "  "*level, match ))
-            while pos_in_text_frame>=0:
-                print("%sTrying to match '%s' -> matched at %s" % ( "  "*level, match, pos_in_text_frame ))
-                to_match = match
+        
+        for (srch, replacement) in self._replacements:
+            text = "\n".join("".join(self._ensure_unicode(run.text) for run in par.runs) for par in text_frame.paragraphs)
+            if self._use_regex:
+                matches = list(m for m in re.finditer(srch, text, flags=re.MULTILINE))
+                if len(matches)>0:
+                    matcher = matches.pop()
+                    pos_in_text_frame = matcher.start(0)
+                    to_match = matcher.group(0)
+                    to_replace = matcher.expand(replacement)
+                else:
+                    pos_in_text_frame = -1
+            else:
+                to_match = srch
                 to_replace = replacement
+                pos_in_text_frame = text.find(srch)
+            if pos_in_text_frame < 0:
+                print("%sTrying to match '%s' -> no match" % ( "  "*level, srch ))
+            while pos_in_text_frame>=0:
+                print("%sTrying to match '%s' -> matched at %s%s" %
+                      ( "  "*level,
+                        srch,
+                        pos_in_text_frame,
+                        ": '"+to_match+"' -> '"+to_replace+"'" if self._use_regex else "" ))
+                to_replace_len = len(to_replace)
                 paragraph_idx = 0
                 pos_in_paragraph = pos_in_text_frame
                 for paragraph in text_frame.paragraphs:
-                    paragraph_len = len(self._ensure_unicode(paragraph.text))
+                    para_text = "".join(self._ensure_unicode(run.text) for run in paragraph.runs)
+                    paragraph_len = len(para_text)
                     if pos_in_paragraph >= paragraph_len:
                         pos_in_paragraph -= paragraph_len+1 # +1 for the new-line-character
                     else:
@@ -159,7 +180,19 @@ class TextReplacer:
                             break;
                         pos_in_paragraph = 0
                     paragraph_idx += 1
-                pos_in_text_frame = self._ensure_unicode(text_frame.text).find(match,pos_in_text_frame+len(replacement))
+                if self._use_regex:
+                    if len(matches)>0:
+                        matcher = matches.pop()
+                        pos_in_text_frame = matcher.start(0)
+                        to_match = matcher.group(0)
+                        to_replace = matcher.expand(replacement)
+                    else:
+                        pos_in_text_frame = -1
+                else:
+                    to_match = srch
+                    to_replace = replacement
+                    text = "\n".join("".join(self._ensure_unicode(run.text) for run in par.runs) for par in text_frame.paragraphs)
+                    pos_in_text_frame = text.find(srch,pos_in_text_frame+to_replace_len)
 
     def _save_font_configuration(self, font):
         saved = {}
@@ -195,7 +228,7 @@ class TextReplacer:
         # font.fill = saved['fill']
         # font.language_id = saved['language_id']
 
-    def _replace_runs_text(self, level, paragraph_idx, runs, pos, match, replacement):
+    def _replace_runs_text(self, level, paragraph_idx, runs, pos, srch, replacement):
         cnt = len(runs)
         i = 0
         while i<cnt:
@@ -205,7 +238,7 @@ class TextReplacer:
                 i += 1      # and off to the next run
             else:
                 # we found the run, where the match starts!
-                to_match = match
+                to_match = srch
                 match_len = len(to_match)
                 to_replace = replacement
                 repl_len = len(to_replace)
@@ -258,16 +291,30 @@ class TextReplacer:
                     pos = 0                     # in the next run, we start at pos 0 with our match
                     i += 1                      # and off to the next run
                 return (to_match, to_replace)
-            
 
+
+    def _make_printable_char(self, char):
+        if char=='\n' or char.isprintable():
+            return char
+        char_ord = ord(char)
+        if char_ord<=0xFFFF:
+            return "\\u{ord:04x}".format(ord=char_ord)
+        else:
+            return "\\U{ord:08x}".format(ord=char_ord)
+
+
+    def _make_printable(self,text):
+        return "".join(self._make_printable_char(c) for c in self._ensure_unicode(text))
+
+        
     def _process_text_frame(self, level, text_frame):
-        print("%sTextFrame: '%s'" % ( "  "*level, text_frame.text ))
+        print("%sTextFrame: '%s'" % ( "  "*level, self._make_printable(text_frame.text) ))
         paragraph_idx = 0
         for paragraph in text_frame.paragraphs:
-            print("%sParagraph[%s]: '%s'" % ( "  "*(level+1), paragraph_idx, paragraph.text ))
+            print("%sParagraph[%s]: '%s'" % ( "  "*(level+1), paragraph_idx, self._make_printable(paragraph.text) ))
             run_idx = 0
             for run in paragraph.runs:
-                print("%sRun[%s,%s]: '%s'" % ( "  "*(level+2), paragraph_idx, run_idx, run.text ))
+                print("%sRun[%s,%s]: '%s'" % ( "  "*(level+2), paragraph_idx, run_idx, self._make_printable(run.text) ))
                 run_idx += 1
             paragraph_idx += 1
         self._replace_text_in_text_frame(level+1,text_frame)
@@ -304,12 +351,15 @@ class TextReplacer:
                     category_idx = 0
                     for category in chart.plots[0].categories:
                         print("%sCategory[%s] '%s'" % ( "  "*(level+2), category_idx, category ))
-                        for (match,replace) in self._replacements:
-                            changed_category = category.replace(match,replace)
-                            if changed_category == category:
-                                print("%sReplacing '%s' -> no match" % ( "  "*(level+3), match ))
+                        for (srch,replace) in self._replacements:
+                            if self._use_regex:
+                                changed_category = re.sub(srch,replace,category,flags=re.MULTILINE)
                             else:
-                                print("%sReplacing '%s' -> changed to '%s'" % ( "  "*(level+3), match, changed_category ))
+                                changed_category = category.replace(srch,replace)
+                            if changed_category == category:
+                                print("%sReplacing '%s' -> no match" % ( "  "*(level+3), srch ))
+                            else:
+                                print("%sReplacing '%s' -> changed to '%s'" % ( "  "*(level+3), srch, changed_category ))
                                 category = changed_category
                                 categories_changed = True
                         new_categories.append(category)
@@ -353,6 +403,13 @@ first number up to the last slide in the file.
                    dest='replacements',
                    metavar='<replacement>',
                    help="the replacement for all the matches' occurrences")
+    p.add_argument('--regex','-x',
+                   action='store_const',
+                   dest='use_regex',
+                   const=True,
+                   required=False,
+                   default=False,
+                   help="use match strings as regular expressions")
     p.add_argument('--input',   '-i',
                    action='store',
                    required=True,
@@ -428,7 +485,7 @@ first number up to the last slide in the file.
         for m in range(0,len(ns.matches)):
             replacements.append( ( ns.matches[m], ns.replacements[m] ) )
         
-        replacer.replace_text(replacements)
+        replacer.replace_text(replacements, ns.use_regex)
         replacer.write_presentation_to_file(ns.output)
 
         return 0
