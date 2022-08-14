@@ -9,7 +9,12 @@ from io import open as open, StringIO
 from python_pptx_text_replacer import TextReplacer
 from python_pptx_text_replacer.TextReplacer import main
 
-PY2 = sys.version_info[0] == 2
+if sys.version_info[0] == 2:
+    PY2 = True
+else:
+    PY2 = False
+    class unicode:
+        pass
 
 class Capture(object):
     def __init__(self, stdin_data):
