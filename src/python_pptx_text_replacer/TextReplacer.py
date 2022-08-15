@@ -101,7 +101,7 @@ class TextReplacer:
         self._collected_replacements.extend(replacements)
         self._use_regex = use_regex
         
-        self._messages.clear()
+        self._messages = []
 
         for repl in self._replacements:
             if len(repl)==0:
