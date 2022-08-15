@@ -5,7 +5,7 @@ on: push
 jobs:
   linting:
     name: Linting the source code before anything else
-    if: not startsWith(github.ref, 'refs/tags/v')
+    if: "!startsWith(github.ref, 'refs/tags/v')"
     runs-on: ubuntu-latest
     
     steps:
