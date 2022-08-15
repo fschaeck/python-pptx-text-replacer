@@ -2,7 +2,10 @@ name: Publish Python package to PyPI
 
 on:
   push:
-    tags: "refs/tags/v*"
+    branches:
+      - main
+    tags:
+      - "v*"
 
 jobs:
   build-and-publish-to-pypi:
