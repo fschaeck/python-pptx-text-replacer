@@ -2,10 +2,8 @@ name: Test Python package and publish to TestPyPI
 
 on:
   push:
-    branches:
-      - main
     tags-ignore:
-      - "*"
+      - "v*"
 
 jobs:
   linting:
