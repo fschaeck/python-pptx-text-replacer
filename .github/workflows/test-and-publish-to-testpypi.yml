@@ -85,7 +85,7 @@ jobs:
 
   test-installation:
     name: Test installation and usage of the package
-    needs: build-and-publish
+    needs: build-and-publish-to-testpypi
     runs-on: ubuntu-latest
 
     steps:
