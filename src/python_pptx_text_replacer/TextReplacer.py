@@ -50,7 +50,7 @@ class TextReplacer:
                  textframes=True,
                  slides='',
                  **kwargs):
-        
+        self._messages = []
         self._replacements = []
         self._collected_replacements = []
         self._presentation_file_name = self._ensure_unicode(presentation_file_name)
@@ -60,6 +60,7 @@ class TextReplacer:
         self._tables = tables
         self._charts = charts
         self._textframes = textframes
+        self._current_slide_idx = 0
         slide_cnt = len(self._presentation.slides)
         if len(slides.strip())==0:
             self._slides = [ True ] * slide_cnt
@@ -99,6 +100,8 @@ class TextReplacer:
         self._replacements = list( (self._ensure_unicode(srch),self._ensure_unicode(repl)) for (srch,repl) in replacements )
         self._collected_replacements.extend(replacements)
         self._use_regex = use_regex
+        
+        self._messages.clear()
 
         for repl in self._replacements:
             if len(repl)==0:
@@ -112,23 +115,29 @@ class TextReplacer:
                     srch_j = self._replacements[j][0]
                     repl_j = self._replacements[j][1]
                     if repl_i.find(srch_j)>=0:
-                        print("WARNING: Replacement string %s at index %s matches search string %s at index %s. This may produce unintended results due to chained replacements!" % ( repl_i, i, srch_j, j))
+                        self._write_warning("Replacement string %s at index %s matches search string %s at index %s. This may produce unintended results due to chained replacements!" % ( repl_i, i, srch_j, j))
                     if srch_j.find(srch_i)>=0:
                         if srch_j.replace(srch_i,repl_i) == repl_j:
-                            print("WARNING: Match/Replacement ('%s','%s') at index %s is obsolete due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
+                            self._write_warning("Match/Replacement ('%s','%s') at index %s is obsolete due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
                         else:
-                            print("WARNING: Match/Replacement ('%s','%s') at index %s will never match due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
+                            self._write_warning("Match/Replacement ('%s','%s') at index %s will never match due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
 
         # loop through all slides
-        slide_idx = 0
+        self._current_slide_idx = 0
         print("Presentation[%s]" % (self._presentation_file_name))
         for slide in self._presentation.slides:
-            print("  Slide[%s, id=%s] with title '%s'" % ( slide_idx+1, slide.slide_id, "<no title>" if slide.shapes.title is None else slide.shapes.title.text ))
-            if self._slides[slide_idx]:
+            print("  Slide[%s, id=%s] with title '%s'" % ( self._current_slide_idx+1, slide.slide_id, "<no title>" if slide.shapes.title is None else slide.shapes.title.text ))
+            if self._slides[self._current_slide_idx]:
                 self._process_shapes(2, slide)
             else:
                 print("    ... skipped")
-            slide_idx += 1
+            self._current_slide_idx += 1
+            
+        if len(self._messages)>0:
+            sys.stderr.write("The following warnings and errors have been issued during this run:\n")
+            for msg in self._messages:
+                sys.stderr.write(msg)
+
 
     def write_presentation_to_file(self, presentation_output_file_name):
         self._presentation.save(presentation_output_file_name)
@@ -138,11 +147,25 @@ class TextReplacer:
 
     def get_presentation_file_name(self):
         return self._presentation_file_name
+    
+
+    def _write_warning(self, msg):
+        text = "WARNING: "+msg
+        self._messages.append(text+"\n")
+        print(text)
+        
+
+    def _write_error(self, msg):
+        text = "ERROR: "+msg
+        self._messages.append(text+"\n")
+        print(text)
+        
 
     def _ensure_unicode(self, text):
         if isinstance(text,(str,bytes) if PY2 else bytes):
             return text.decode('UTF-8')
         return text
+
 
     def _replace_text_in_text_frame(self, level, text_frame):
         
@@ -198,6 +221,7 @@ class TextReplacer:
                     text = "\n".join("".join(self._ensure_unicode(run.text) for run in par.runs) for par in text_frame.paragraphs)
                     pos_in_text_frame = text.find(srch,pos_in_text_frame+to_replace_len)
 
+
     def _save_font_configuration(self, font):
         saved = {}
         saved['name'] = font.name
@@ -215,6 +239,7 @@ class TextReplacer:
         # saved['language_id'] = font.language_id
         return saved
 
+
     def _restore_font_configuration(self, saved, font):
         font.name = saved['name']
         font.size = saved['size']
@@ -231,6 +256,7 @@ class TextReplacer:
                 font.color.rgb = None
         # font.fill = saved['fill']
         # font.language_id = saved['language_id']
+
 
     def _replace_runs_text(self, level, paragraph_idx, runs, pos, srch, replacement):
         cnt = len(runs)
@@ -374,7 +400,11 @@ class TextReplacer:
                         new_chart_data.categories = new_categories
                         for series in chart.series:
                             new_chart_data.add_series(series.name,series.values)
-                        chart.replace_data(new_chart_data)
+                        try:
+                            chart.replace_data(new_chart_data)
+                        except ValueError as err:
+                            self._write_error("Replacing chart data of chart with id %s on slide %s failed with error: %s"
+                                              % (shape.shape_id, self._current_slide_idx,str(err.args[0])))
                 else:
                     print("%s... skipped" % ( "  "*(level+2)))
 

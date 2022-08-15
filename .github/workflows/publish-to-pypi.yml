@@ -9,6 +9,9 @@ jobs:
     
     steps:
       - uses: actions/checkout@v3
+      - name: Show github.ref
+        run: |
+          echo "GitHub ref is '${{ github.ref }}'"
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
