@@ -33,13 +33,10 @@ You can execute the script in two ways:
 The following is, what you get, if you start the script with the parameter --help:
 
 ```
-usage: TextReplacer [-h] --match <match> --replace <replacement>
-                         --input <input file> --output <output file>
-                         [--slides <list of slide numbers to process>]
-                         [--text-frames] [--no-text-frames] [--tables]
-                         [--no-tables] [--charts] [--no-charts]
+usage: TextReplacer.py [-h] --match <match> --replace <replacement> [--verbose] [--quiet] [--regex] --input <input file> --output <output file> [--slides <list of slide numbers to process>] [--text-frames] [--no-text-frames]
+                       [--tables] [--no-tables] [--charts] [--no-charts]
 
-This module implements text replacement in Powerpoint files in pptx format.
+This package implements text replacement in Powerpoint files in pptx format.
 
 The text is searched and replaced in all possible places while preserving the
 original character's formatting.
@@ -48,22 +45,24 @@ Text replacement can be configured to leave certain slides untouched (by specify
 which slides should be processed), or to not touching text in tables, charts or
 text frames in any of the shapes.
 
-This module can be imported and the class python_pptx_text_replacer used directly
+This package can be imported and the class python_pptx_text_replacer used directly
 or it can be called as main and given parameters to define what needs to be done.
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   --match <match>, -m <match>
                         the string to look for and to be replaced
   --replace <replacement>, -r <replacement>
                         the replacement for all the matches' occurrences
+  --verbose, -v         print detailed structure of and changes made in presentation file
+  --quiet, -q           don't even print the changes that are done
+  --regex, -x           use match strings as regular expressions
   --input <input file>, -i <input file>
                         the file to replace the text in
   --output <output file>, -o <output file>
                         the file to write the changed presentation to
   --slides <list of slide numbers to process>, -s <list of slide numbers to process>
-                        A comma-separated list of slide numbers (1-based) to
-                        restrict processing to, i.e. '2,4,6-10'
+                        A comma-separated list of slide numbers (1-based) to restrict processing to, i.e. '2,4,6-10'
   --text-frames, -f     process text frames in any shape as well (default)
   --no-text-frames, -F  do not process any text frames in shapes
   --tables, -t          process tables as well (default)
@@ -79,6 +78,9 @@ slide numbers from 1 to the number of slides contained in the presentation
 or slide number ranges of the kind '4-16'. If the second number is omitted,
 like in '4-' the range includes everything from the slide identified by the
 first number up to the last slide in the file.
+
+=================================================================
+python-pptx-text-replacer v0.0.5post0 (c) Frank Schäckermann 2022
 ```
 
 ### Examples using the command line  ###
