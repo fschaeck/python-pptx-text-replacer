@@ -150,7 +150,9 @@ class test_text_replacer(unittest.TestCase):
                      replacements,
                      expected_stdout,
                      expected_stderr,
-                     use_regex=False):
+                     use_regex=False,
+                     verbose=False,
+                     quiet=False):
         rc = 0
         with Capture(None) as capture:
             try:
@@ -159,7 +161,7 @@ class test_text_replacer(unittest.TestCase):
                                         tables=tables,
                                         charts=charts,
                                         slides=slides)
-                replacer.replace_text(replacements,use_regex=use_regex)
+                replacer.replace_text(replacements,use_regex=use_regex,verbose=verbose,quiet=quiet)
             except ValueError as err:
                 print(str(err),file=sys.stderr)
                 rc = 1
@@ -183,7 +185,9 @@ class test_text_replacer(unittest.TestCase):
                          replacements,
                          expected_stdout,
                          expected_stderr,
-                         use_regex=False):
+                         use_regex=False,
+                         verbose=False,
+                         quiet=False):
         rc = 0
         with Capture(None) as capture:
             argv = ['TextReplacer',
@@ -197,6 +201,10 @@ class test_text_replacer(unittest.TestCase):
                 argv.extend(['-m',match,'-r',repl])
             if use_regex:
                 argv.append('-x')
+            if verbose:
+                argv.append('-v')
+            if quiet:
+                argv.append('-q')
             sys.argv = argv
             main()
 
@@ -243,12 +251,12 @@ class test_text_replacer(unittest.TestCase):
 """
 
     def test_01_change_nothing(self):
-        self.do_test('tests/data/Test-Presentation.pptx',False,False,False,'',[('cell','CELL')],self.do_nothing_result,'')
+        self.do_test('tests/data/Test-Presentation.pptx',False,False,False,'',[('cell','CELL')],self.do_nothing_result,'',verbose=True)
 
     def test_02_change_nothing_via_main(self):
-        self.do_test_via_main('tests/data/Test-Presentation.pptx',False,False,False,'',[('cell','CELL')],self.do_nothing_result,'')
+        self.do_test_via_main('tests/data/Test-Presentation.pptx',False,False,False,'',[('cell','CELL')],self.do_nothing_result,'',verbose=True)
 
-    def test_03_across_runs(self):
+    def test_03_verbose_across_runs(self):
         self.do_test('tests/data/test-03.pptx',True,False,False,'',[('How are you?',"I'm fine!")],
 '''Presentation[tests/data/test-03.pptx]
   Slide[1, id=256] with title ''
@@ -268,9 +276,9 @@ class test_text_replacer(unittest.TestCase):
           Run[0,1]: 'How ' -> 'I'm '
           Run[0,2]: 'are' -> 'fin'
           Run[0,3]: ' you?' -> 'e!'
-''','')
+''','',verbose=True)
 
-    result_regex_across_runs = """Presentation[tests/data/test-04.pptx]
+    result_verbose_regex_across_runs = """Presentation[tests/data/test-04.pptx]
   Slide[1, id=256] with title ''
     Shape[0, id=2, type=PLACEHOLDER (14)]
       TextFrame: ''
@@ -292,9 +300,26 @@ class test_text_replacer(unittest.TestCase):
           Run[0,3]: ' you?' -> 'e!'
 """
 
-    def test_04_regex_across_runs(self):
-        self.do_test('tests/data/test-04.pptx',True,False,False,'',[(r'How ..(.) you\?',r"I'm fin\1!")],self.result_regex_across_runs,'',use_regex=True)
+    def test_04_verbose_regex_across_runs(self):
+        self.do_test('tests/data/test-04.pptx',True,False,False,'',[(r'How ..(.) you\?',r"I'm fin\1!")],self.result_verbose_regex_across_runs,'',use_regex=True,verbose=True,quiet=False)
 
-    def test_05_regex_across_runs_via_main(self):
-        self.do_test_via_main('tests/data/test-04.pptx',True,False,False,'',[(r'How ..(.) you\?',r"I'm fin\1!")],self.result_regex_across_runs,'',use_regex=True)
+    def test_05_verbose_regex_across_runs_via_main(self):
+        self.do_test_via_main('tests/data/test-04.pptx',True,False,False,'',[(r'How ..(.) you\?',r"I'm fin\1!")],self.result_verbose_regex_across_runs,'',use_regex=True,verbose=True,quiet=False)
+
+    result_regex_across_runs="""Slide[1].TEXT_BOX[id=3].Run[0,1]: 'How ' -> 'I'm '
+Slide[1].TEXT_BOX[id=3].Run[0,2]: 'are' -> 'fin'
+Slide[1].TEXT_BOX[id=3].Run[0,3]: ' you?' -> 'e!'
+"""
+
+    def test_06_regex_across_runs(self):
+        self.do_test('tests/data/test-04.pptx',True,False,False,'',[(r'How ..(.) you\?',r"I'm fin\1!")],self.result_regex_across_runs,'',use_regex=True,verbose=False,quiet=False)
+
+    def test_07_regex_across_runs_via_main(self):
+        self.do_test_via_main('tests/data/test-04.pptx',True,False,False,'',[(r'How ..(.) you\?',r"I'm fin\1!")],self.result_regex_across_runs,'',use_regex=True,verbose=False,quiet=False)
+
+    def test_08_quiet_regex_across_runs(self):
+        self.do_test('tests/data/test-04.pptx',True,False,False,'',[(r'How ..(.) you\?',r"I'm fin\1!")],'','',use_regex=True,verbose=False,quiet=True)
+
+    def test_09_quiet_regex_across_runs_via_main(self):
+        self.do_test_via_main('tests/data/test-04.pptx',True,False,False,'',[(r'How ..(.) you\?',r"I'm fin\1!")],'','',use_regex=True,verbose=False,quiet=True)
 

@@ -82,6 +82,8 @@ jobs:
           password: ${{ secrets.TESTPYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
           skip_existing: True
+      - name: Wait for index to process the publish request
+        run: sleep 20
 
   test-installation:
     name: Test installation and usage of the package

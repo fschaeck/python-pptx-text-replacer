@@ -36,7 +36,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.dml import MSO_COLOR_TYPE
 from pptx.util import Inches
 
-__version__ = "v0.0.4"
+__version__ = "v0.0.5"
 
 class TextReplacer:
     """
@@ -96,10 +96,12 @@ class TextReplacer:
                     self._slides[i] = True
 
 
-    def replace_text(self, replacements, use_regex=False):
+    def replace_text(self, replacements, use_regex=False, verbose=False, quiet=False):
         self._replacements = list( (self._ensure_unicode(srch),self._ensure_unicode(repl)) for (srch,repl) in replacements )
         self._collected_replacements.extend(replacements)
         self._use_regex = use_regex
+        self._verbose = verbose
+        self._quiet = quiet
         
         self._messages = []
 
@@ -124,19 +126,22 @@ class TextReplacer:
 
         # loop through all slides
         self._current_slide_idx = 0
-        print("Presentation[%s]" % (self._presentation_file_name))
+        if self._verbose:
+            print("Presentation[%s]" % (self._presentation_file_name))
         for slide in self._presentation.slides:
-            print("  Slide[%s, id=%s] with title '%s'" % ( self._current_slide_idx+1, slide.slide_id, "<no title>" if slide.shapes.title is None else slide.shapes.title.text ))
+            if self._verbose:
+                print("  Slide[%s, id=%s] with title '%s'" % ( self._current_slide_idx+1, slide.slide_id, "<no title>" if slide.shapes.title is None else slide.shapes.title.text ))
             if self._slides[self._current_slide_idx]:
                 self._process_shapes(2, slide)
             else:
-                print("    ... skipped")
+                if self._verbose:
+                    print("    ... skipped")
             self._current_slide_idx += 1
             
         if len(self._messages)>0:
-            sys.stderr.write("The following warnings and errors have been issued during this run:\n")
+            print("The following warnings and errors have been issued during this run:", file=sys.stderr)
             for msg in self._messages:
-                sys.stderr.write(msg)
+                print(msg, file=sys.stderr)
 
 
     def write_presentation_to_file(self, presentation_output_file_name):
@@ -151,14 +156,16 @@ class TextReplacer:
 
     def _write_warning(self, msg):
         text = "WARNING: "+msg
-        self._messages.append(text+"\n")
-        print(text)
+        self._messages.append(text)
+        if self._verbose:
+            print(text)
         
 
     def _write_error(self, msg):
         text = "ERROR: "+msg
-        self._messages.append(text+"\n")
-        print(text)
+        self._messages.append(text)
+        if self._verbose:
+            print(text)
         
 
     def _ensure_unicode(self, text):
@@ -167,7 +174,7 @@ class TextReplacer:
         return text
 
 
-    def _replace_text_in_text_frame(self, level, text_frame):
+    def _replace_text_in_text_frame(self, level, shape, text_frame):
         
         for (srch, replacement) in self._replacements:
             text = "\n".join("".join(self._ensure_unicode(run.text) for run in par.runs) for par in text_frame.paragraphs)
@@ -185,13 +192,15 @@ class TextReplacer:
                 to_replace = replacement
                 pos_in_text_frame = text.find(srch)
             if pos_in_text_frame < 0:
-                print("%sTrying to match '%s' -> no match" % ( "  "*level, srch ))
+                if self._verbose:
+                    print("%sTrying to match '%s' -> no match" % ( "  "*level, srch ))
             while pos_in_text_frame>=0:
-                print("%sTrying to match '%s' -> matched at %s%s" %
-                      ( "  "*level,
-                        srch,
-                        pos_in_text_frame,
-                        ": '"+to_match+"' -> '"+to_replace+"'" if self._use_regex else "" ))
+                if self._verbose:
+                    print("%sTrying to match '%s' -> matched at %s%s" %
+                          ( "  "*level,
+                            srch,
+                            pos_in_text_frame,
+                            ": '"+to_match+"' -> '"+to_replace+"'" if self._use_regex else "" ))
                 to_replace_len = len(to_replace)
                 paragraph_idx = 0
                 pos_in_paragraph = pos_in_text_frame
@@ -202,7 +211,7 @@ class TextReplacer:
                         pos_in_paragraph -= paragraph_len+1 # +1 for the new-line-character
                     else:
                         # this is the paragraph that contains the beginning of the match
-                        (to_match, to_replace) = self._replace_runs_text(level+1, paragraph_idx, paragraph.runs, pos_in_paragraph, to_match, to_replace)
+                        (to_match, to_replace) = self._replace_runs_text(level+1, shape, paragraph_idx, paragraph.runs, pos_in_paragraph, to_match, to_replace)
                         if len(to_match) == 0: # are we done with this match
                             break;
                         pos_in_paragraph = 0
@@ -258,7 +267,7 @@ class TextReplacer:
         # font.language_id = saved['language_id']
 
 
-    def _replace_runs_text(self, level, paragraph_idx, runs, pos, srch, replacement):
+    def _replace_runs_text(self, level, shape, paragraph_idx, runs, pos, srch, replacement):
         cnt = len(runs)
         i = 0
         while i<cnt:
@@ -283,7 +292,11 @@ class TextReplacer:
                         saved_font = self._save_font_configuration(run.font)
                         run.text = otext[0:pos]+to_replace+otext[pos+match_len:]
                         self._restore_font_configuration(saved_font, run.font)
-                        print("%sRun[%s,%s]: '%s' -> '%s'" % ( "  "*level, paragraph_idx, i, otext, run.text ))
+                        if self._verbose:
+                            print("%sRun[%s,%s]: '%s' -> '%s'" % ( "  "*level, paragraph_idx, i, otext, run.text ))
+                        elif not self._quiet:
+                            print("Slide[%s].%s[id=%s].Run[%s,%s]: '%s' -> '%s'"
+                                    % (self._current_slide_idx+1, str(shape.shape_type)[0:str(shape.shape_type).find(' ')], shape.shape_id, paragraph_idx, i, otext, run.text))
                         return ('','')
                     if pos+match_len == olen:
                         # our match ends together with the text of this run therefore
@@ -291,7 +304,11 @@ class TextReplacer:
                         saved_font = self._save_font_configuration(run.font)
                         run.text = otext[0:pos]+to_replace
                         self._restore_font_configuration(saved_font, run.font)
-                        print("%sRun[%s,%s]: '%s' -> '%s'" % ( "  "*level, paragraph_idx, i, otext, run.text ))
+                        if self._verbose:
+                            print("%sRun[%s,%s]: '%s' -> '%s'" % ( "  "*level, paragraph_idx, i, otext, run.text ))
+                        elif not self._quiet:
+                            print("Slide[%s].%s[id=%s].Run[%s,%s]: '%s' -> '%s'"
+                                    % (self._current_slide_idx+1, str(shape.shape_type)[0:str(shape.shape_type).find(' ')], shape.shape_id, paragraph_idx, i, otext, run.text))
                         return ('','')
                     # we still haven't found all of our original match string
                     # so we process what we have here and go on to the next run
@@ -312,7 +329,11 @@ class TextReplacer:
                         ntext += to_replace[0:part_match_len]
                         to_replace = to_replace[part_match_len:]
                         repl_len -= part_match_len
-                    print("%sRun[%s,%s]: '%s' -> '%s'" % ( "  "*level, paragraph_idx, i, otext, ntext ))
+                    if self._verbose:
+                        print("%sRun[%s,%s]: '%s' -> '%s'" % ( "  "*level, paragraph_idx, i, otext, ntext ))
+                    elif not self._quiet:
+                        print("Slide[%s].%s[id=%s].Run[%s,%s]: '%s' -> '%s'"
+                                % (self._current_slide_idx+1, str(shape.shape_type)[0:str(shape.shape_type).find(' ')], shape.shape_id, paragraph_idx, i, otext, ntext))
                     saved_font = self._save_font_configuration(run.font)
                     run.text = ntext            # save the new text to the run
                     self._restore_font_configuration(saved_font, run.font)
@@ -337,59 +358,70 @@ class TextReplacer:
         return "".join(self._make_printable_char(c) for c in self._ensure_unicode(text))
 
         
-    def _process_text_frame(self, level, text_frame):
-        print("%sTextFrame: '%s'" % ( "  "*level, self._make_printable(text_frame.text) ))
-        paragraph_idx = 0
-        for paragraph in text_frame.paragraphs:
-            print("%sParagraph[%s]: '%s'" % ( "  "*(level+1), paragraph_idx, self._make_printable(paragraph.text) ))
-            run_idx = 0
-            for run in paragraph.runs:
-                print("%sRun[%s,%s]: '%s'" % ( "  "*(level+2), paragraph_idx, run_idx, self._make_printable(run.text) ))
-                run_idx += 1
-            paragraph_idx += 1
-        self._replace_text_in_text_frame(level+1,text_frame)
+    def _process_text_frame(self, level, shape, text_frame):
+        if self._verbose:
+            print("%sTextFrame: '%s'" % ( "  "*level, self._make_printable(text_frame.text) ))
+            paragraph_idx = 0
+            for paragraph in text_frame.paragraphs:
+                print("%sParagraph[%s]: '%s'" % ( "  "*(level+1), paragraph_idx, self._make_printable(paragraph.text) ))
+                run_idx = 0
+                for run in paragraph.runs:
+                    print("%sRun[%s,%s]: '%s'" % ( "  "*(level+2), paragraph_idx, run_idx, self._make_printable(run.text) ))
+                    run_idx += 1
+                paragraph_idx += 1
+        self._replace_text_in_text_frame(level+1, shape, text_frame)
 
     def _process_shapes(self, level, shape_list_parent):
         for shape in shape_list_parent.shapes:
-            print("%sShape[%s, id=%s, type=%s]" % ( "  "*level, shape_list_parent.shapes.index(shape), shape.shape_id, shape.shape_type ))
+            if self._verbose:
+                print("%sShape[%s, id=%s, type=%s]" % ( "  "*level, shape_list_parent.shapes.index(shape), shape.shape_id, shape.shape_type ))
             if shape.has_text_frame:
                 if self._textframes:
-                    self._process_text_frame(level+1,shape.text_frame)
-                else:
+                    self._process_text_frame(level+1, shape, shape.text_frame)
+                elif self._verbose:
                     print("%s... skipped" % ("  "*(level+1)))
             if shape.has_table:
                 table = shape.table
                 row_cnt = len(table.rows)
                 col_cnt = len(table.columns)
-                print("%sTable[%s,%s]" % ( "  "*(level+1), row_cnt, col_cnt ) )
+                if self._verbose:
+                    print("%sTable[%s,%s]" % ( "  "*(level+1), row_cnt, col_cnt ) )
                 if self._tables:
                     for row in range(0, row_cnt):
                         for col in range(0, col_cnt):
                             cell = table.cell(row,col)
-                            print("%sCell[%s,%s]: '%s'" % ( "  "*(level+2), row, col, cell.text ))
-                            self._process_text_frame(level+3, cell.text_frame)
-                else:
+                            if self._verbose:
+                                print("%sCell[%s,%s]: '%s'" % ( "  "*(level+2), row, col, cell.text ))
+                            self._process_text_frame(level+3, shape, cell.text_frame)
+                elif self._verbose:
                     print("%s... skipped" % ( "  "*(level+2)))
             if shape.shape_type==MSO_SHAPE_TYPE.GROUP:
                 self._process_shapes(level+1, shape)
             if shape.has_chart:
                 chart = shape.chart
-                print("%sChart of type %s" % ( "  "*(level+1), chart.chart_type ) )
+                if self._verbose:
+                    print("%sChart of type %s" % ( "  "*(level+1), chart.chart_type ) )
                 if self._charts:
                     categories_changed = False
                     new_categories = []
                     category_idx = 0
                     for category in chart.plots[0].categories:
-                        print("%sCategory[%s] '%s'" % ( "  "*(level+2), category_idx, category ))
+                        if self._verbose:
+                            print("%sCategory[%s] '%s'" % ( "  "*(level+2), category_idx, category ))
                         for (srch,replace) in self._replacements:
                             if self._use_regex:
                                 changed_category = re.sub(srch,replace,category,flags=re.MULTILINE)
                             else:
                                 changed_category = category.replace(srch,replace)
                             if changed_category == category:
-                                print("%sReplacing '%s' -> no match" % ( "  "*(level+3), srch ))
+                                if self._verbose:
+                                    print("%sReplacing '%s' -> no match" % ( "  "*(level+3), srch ))
                             else:
-                                print("%sReplacing '%s' -> changed to '%s'" % ( "  "*(level+3), srch, changed_category ))
+                                if self._verbose:
+                                    print("%sReplacing '%s' -> changed to '%s'" % ( "  "*(level+3), srch, changed_category ))
+                                elif not self._quiet:
+                                    print("Slide[%s].%s[id=%s].Category[%s]: replacing '%s' -> '%s' changed to '%s'"
+                                            % (self._current_slide_idx+1, str(shape.shape_type)[0:str(shape.shape_type).find(' ')], shape.shape_id, category_idx, srch, category, changed_category))
                                 category = changed_category
                                 categories_changed = True
                         new_categories.append(category)
@@ -405,7 +437,7 @@ class TextReplacer:
                         except ValueError as err:
                             self._write_error("Replacing chart data of chart with id %s on slide %s failed with error: %s"
                                               % (shape.shape_id, self._current_slide_idx,str(err.args[0])))
-                else:
+                elif self._verbose:
                     print("%s... skipped" % ( "  "*(level+2)))
 
 def main():
@@ -437,6 +469,20 @@ first number up to the last slide in the file.
                    dest='replacements',
                    metavar='<replacement>',
                    help="the replacement for all the matches' occurrences")
+    p.add_argument('--verbose','-v',
+                   action='store_const',
+                   dest='verbose',
+                   const=True,
+                   required=False,
+                   default=False,
+                   help="print detailed structure of and changes made in presentation file")
+    p.add_argument('--quiet','-q',
+                   action='store_const',
+                   dest='quiet',
+                   const=True,
+                   required=False,
+                   default=False,
+                   help="don't even print the changes that are done")
     p.add_argument('--regex','-x',
                    action='store_const',
                    dest='use_regex',
@@ -519,7 +565,7 @@ first number up to the last slide in the file.
         for m in range(0,len(ns.matches)):
             replacements.append( ( ns.matches[m], ns.replacements[m] ) )
         
-        replacer.replace_text(replacements, ns.use_regex)
+        replacer.replace_text(replacements, use_regex=ns.use_regex, verbose=ns.verbose, quiet=ns.quiet)
         replacer.write_presentation_to_file(ns.output)
 
         return 0

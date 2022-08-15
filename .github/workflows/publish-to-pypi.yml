@@ -27,6 +27,8 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Wait for index to process the publish request
+        run: sleep 20
 
   test-installation:
     name: Test installation and usage of the package
