@@ -36,7 +36,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.dml import MSO_COLOR_TYPE
 from pptx.util import Inches
 
-__version__ = "v0.0.5post0"
+__version__ = "v0.0.6"
 
 class TextReplacer:
     """
@@ -49,7 +49,8 @@ class TextReplacer:
                  charts=True,
                  textframes=True,
                  slides='',
-                 **kwargs):
+                 verbose=False,
+                 quiet=False):
         self._messages = []
         self._replacements = []
         self._collected_replacements = []
@@ -60,6 +61,8 @@ class TextReplacer:
         self._tables = tables
         self._charts = charts
         self._textframes = textframes
+        self._default_verbose = verbose
+        self._default_quiet = quiet
         self._current_slide_idx = 0
         slide_cnt = len(self._presentation.slides)
         if len(slides.strip())==0:
@@ -96,12 +99,24 @@ class TextReplacer:
                     self._slides[i] = True
 
 
-    def replace_text(self, replacements, use_regex=False, verbose=False, quiet=False):
+    def replace_text(self, replacements, use_regex=False, verbose=None, quiet=None):
         self._replacements = list( (self._ensure_unicode(srch),self._ensure_unicode(repl)) for (srch,repl) in replacements )
         self._collected_replacements.extend(replacements)
         self._use_regex = use_regex
-        self._verbose = verbose
-        self._quiet = quiet
+
+        if verbose is None:
+            self._verbose = self._default_verbose
+        elif verbose:
+            self._verbose = True
+        else:
+            self._verbose = False
+
+        if quiet is None:
+            self._quiet = self._default_quiet
+        elif quiet:
+            self._quiet = True
+        else:
+            self._quiet = False
         
         self._messages = []
 
@@ -560,12 +575,14 @@ first number up to the last slide in the file.
                                 tables=ns.tables,
                                 charts=ns.charts,
                                 textframes=ns.textframes,
-                                slides=ns.slides)
+                                slides=ns.slides,
+                                verbose=ns.verbose,
+                                quiet=ns.quiet)
         replacements = []
         for m in range(0,len(ns.matches)):
             replacements.append( ( ns.matches[m], ns.replacements[m] ) )
         
-        replacer.replace_text(replacements, use_regex=ns.use_regex, verbose=ns.verbose, quiet=ns.quiet)
+        replacer.replace_text(replacements, use_regex=ns.use_regex)
         replacer.write_presentation_to_file(ns.output)
 
         return 0

@@ -142,10 +142,28 @@ from python_pptx_text_replacer import TextReplacer
 ```
 and then use the class TextReplacer as shown in below examples.
 
+The parameters to the constructor of TextReplacer are:
+1. (positional, required): name of file with presentation to process.
+2. tables (named, optional): if True (default), tables will be processed, if False, tables will be ignored. 
+3. charts (named, optional): if True (default), charts will be processed, if False, charts will be ignored. 
+4. textframes (named, optional): if True (default), textframes will be processed, if False, textframes will be ignored. 
+5. slides (named, optional): comma separated list of slide numbers to process. If not specified, all slides will be processed.
+6. verbose (named, optional): Default is False. Will be used as default for each call to TextReplacer.replace_text.
+6. quiet (named, optional): Default is False. Will be used as default for each call to TextReplacer.replace_text.
+
 The parameter to the function TextReplacer.replace_text is a list of tuples of the form ( match,replacement ).
 All match/replace-actions are done in the sequence the tuples appear in the list.
 To avoid unforeseen results, the function is doing some sanity-checks on the list of replacements and prints a warning if it finds anything that might lead to unintended results.
 Make sure, you understand what is going on, if you ignore these warnings!
+
+There are two optional parameters to the function replace_text:
+1. verbose
+2. quiet
+Their defaults are, what was specified when TextReplacer was created or False, if those where not specified on creation of TextReplacer. 
+
+With verbose=True the function will print a detailed structure of the presentation and all the changes it is doing.
+With verbose=False only the changes will be listed and finally with quiet=True not even those changes will be printed.
+In any case - if there are any warnings or errors, they will be printed at the end - even with quiet=True.
 
 The function replace_text can be called multiple times with different match/replace tuples. But be aware, that the sanity-checks will only include the current replacement tupels and won't look at former ones!
 
