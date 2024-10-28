@@ -99,61 +99,77 @@ class TextReplacer:
                     self._slides[i] = True
 
 
-    def replace_text(self, replacements, use_regex=False, verbose=None, quiet=None):
-        self._replacements = list( (self._ensure_unicode(srch),self._ensure_unicode(repl)) for (srch,repl) in replacements )
+    def replace_text(self, replacements, use_regex=False, verbose=None, quiet=None, edit_slide_master=True):
+        import sys
+
+        # Ensure all replacements are unicode
+        self._replacements = [
+            (self._ensure_unicode(srch), self._ensure_unicode(repl))
+            for srch, repl in replacements
+        ]
         self._collected_replacements.extend(replacements)
         self._use_regex = use_regex
 
-        if verbose is None:
-            self._verbose = self._default_verbose
-        elif verbose:
-            self._verbose = True
-        else:
-            self._verbose = False
+        # Set verbosity and quietness
+        self._verbose = self._default_verbose if verbose is None else bool(verbose)
+        self._quiet = self._default_quiet if quiet is None else bool(quiet)
 
-        if quiet is None:
-            self._quiet = self._default_quiet
-        elif quiet:
-            self._quiet = True
-        else:
-            self._quiet = False
-        
         self._messages = []
 
-        for repl in self._replacements:
-            if len(repl)==0:
-                raise ValueError("A match string can not be empty.")
+        # Validate replacements
+        for srch, repl in self._replacements:
+            if not srch:
+                raise ValueError("A match string cannot be empty.")
 
+        # Check for overlapping replacements if not using regex
         if not use_regex:
-            for i in range(0,len(self._replacements)-1):
-                srch_i = self._replacements[i][0]
-                repl_i = self._replacements[i][1]
-                for j in range(i+1, len(self._replacements)):
-                    srch_j = self._replacements[j][0]
-                    repl_j = self._replacements[j][1]
-                    if repl_i.find(srch_j)>=0:
-                        self._write_warning("Replacement string %s at index %s matches search string %s at index %s. This may produce unintended results due to chained replacements!" % ( repl_i, i, srch_j, j))
-                    if srch_j.find(srch_i)>=0:
-                        if srch_j.replace(srch_i,repl_i) == repl_j:
-                            self._write_warning("Match/Replacement ('%s','%s') at index %s is obsolete due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
+            for i, (srch_i, repl_i) in enumerate(self._replacements[:-1]):
+                for j, (srch_j, repl_j) in enumerate(self._replacements[i+1:], start=i+1):
+                    if srch_j in repl_i:
+                        self._write_warning(
+                            f"Replacement string '{repl_i}' at index {i} contains search string '{srch_j}' at index {j}. "
+                            "This may produce unintended results due to chained replacements!"
+                        )
+                    if srch_i in srch_j:
+                        if srch_j.replace(srch_i, repl_i) == repl_j:
+                            self._write_warning(
+                                f"Match/Replacement ('{srch_j}', '{repl_j}') at index {j} is obsolete due to "
+                                f"match/replacement ('{srch_i}', '{repl_i}') at index {i}."
+                            )
                         else:
-                            self._write_warning("Match/Replacement ('%s','%s') at index %s will never match due to match/replacement ('%s','%s') at index %s" % (srch_j,repl_j,j,srch_i,repl_i,i))
+                            self._write_warning(
+                                f"Match/Replacement ('{srch_j}', '{repl_j}') at index {j} will never match due to "
+                                f"match/replacement ('{srch_i}', '{repl_i}') at index {i}."
+                            )
 
-        # loop through all slides
-        self._current_slide_idx = 0
-        if self._verbose:
-            print("Presentation[%s]" % (self._presentation_file_name))
-        for slide in self._presentation.slides:
-            if self._verbose:
-                print("  Slide[%s, id=%s] with title '%s'" % ( self._current_slide_idx+1, slide.slide_id, "<no title>" if slide.shapes.title is None else slide.shapes.title.text ))
-            if self._slides[self._current_slide_idx]:
-                self._process_shapes(2, slide)
-            else:
+        def process_slides(slides, slide_type="slide"):
+            for idx, slide in enumerate(slides):
                 if self._verbose:
-                    print("    ... skipped")
-            self._current_slide_idx += 1
-            
-        if len(self._messages)>0:
+                    title = slide.shapes.title.text if slide.shapes.title else "<no title>"
+                    print(f"  {slide_type.capitalize()}[{idx + 1}, id={slide.slide_id}] with title '{title}'")
+
+                # For slides, check if the slide should be processed
+                if slide_type == "slide":
+                    if not self._slides[idx]:
+                        if self._verbose:
+                            print("    ... skipped")
+                        continue
+
+                # Process shapes in the slide
+                self._process_shapes(2, slide)
+
+        if self._verbose:
+            print(f"Presentation[{self._presentation_file_name}]")
+
+        # Process presentation slides
+        process_slides(self._presentation.slides, slide_type="slide")
+
+        # Process slide masters if edit_slide_master is True
+        if edit_slide_master:
+            process_slides(self._presentation.slide_masters, slide_type="slide master")
+
+        # Print collected messages
+        if self._messages:
             print("The following warnings and errors have been issued during this run:", file=sys.stderr)
             for msg in self._messages:
                 print(msg, file=sys.stderr)
